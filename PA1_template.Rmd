@@ -1,25 +1,127 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: 'Reproducible Research: Peer Assessment 1'
+author: "Michael F Totoraitis"
+date: "September 12, 2019"
+output: html_document
 ---
-
-
 ## Loading and preprocessing the data
+First step is to load and process the data.
+```{r, echo=TRUE}
+library(dplyr)
+library(readr)
 
+#1 Code for reading in the dataset and processing it
+d <- read_csv("activity.csv", col_types = cols(steps = col_number()), 
+              na = "NA")
 
+d1 <- d %>%
+      group_by(date) %>%
+      summarize(
+            total_steps = sum(steps, na.rm = T),
+            mean_int_steps = mean(steps, na.rm=T),
+            median_int_steps = median(steps, na.rm=T))
+```
 
 ## What is mean total number of steps taken per day?
+Examine a histogram of the total number of steps taken each day.
+```{r, echo=TRUE}
+hist(d1$total_steps, breaks = 61, ylim=c(0,15), 
+     xlab = "Total Daily Steps", main = "Histogram of total steps taken each day")
+```
 
-
+Calculate the mean and median total number of steps taken per day.
+```{r, echo=TRUE}
+mean(d1$total_steps, na.rm = T)
+median(d1$total_steps, na.rm = T)
+```
 
 ## What is the average daily activity pattern?
+Create a time series plot to examine the average daily activity pattern.
+```{r, echo=TRUE}
+library(ggplot2)
 
+d2 <- d %>%
+      group_by(interval) %>%
+      summarize(
+            mean_int_steps = mean(steps, na.rm=T))
 
+ggplot(d2)+ geom_line(aes(interval,mean_int_steps),color = "#00AFBB", size = 1) +
+      labs(
+            title = paste("Average steps taken by 5 minute intervals"),
+            x = paste("Avg. 5 min. intervals"),
+            y = paste("Count of steps"))
+```
+
+Examine the 5-minute interval that, on average, contains the maximum number of 
+steps.
+```{r, echo=TRUE}
+max(d2$mean_int_steps, na.rm = T)
+filter(d2,mean_int_steps>=206.1698)
+```
 
 ## Imputing missing values
+First determine the number of missing steps values.
+```{r, echo=TRUE}
+sum(is.na(d$steps))
+```
+Imput the mean of the overall steps into a new dataset.
+```{r, echo=TRUE}
+d_imputed <- d
+d_imputed$steps[is.na(d_imputed$steps)] = mean(d_imputed$steps, na.rm=TRUE)
+```
 
+Examine the histogram of the total number of steps taken each day after the 
+missing values have been imputed
+```{r, echo=TRUE}
+d2_imputed <- d_imputed %>%
+      group_by(date) %>%
+      summarize(
+            total_steps = sum(steps))
 
+hist(d2_imputed$total_steps, breaks = 61, ylim=c(0,15), 
+     xlab = "Total Daily Steps", main = "Histogram of total steps taken each day
+     with imputed mean values")
+```
+
+Examine the mean and median's of the new dataset with imputed values.
+```{r,echo=TRUE}
+mean(d2_imputed$total_steps)
+median(d2_imputed$total_steps)
+```
+
+The values generated from imputed missing values does differ from the first part
+of the assignment. The imputed missing values increases both the mean and median
+values calculated.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+To examine the differences between weekdays and weekends, first code in a new 
+variable for the whether or not the value is a weekday or a weekend.
+```{r, echo=TRUE}
+d_imputed$day <- '0'
+d_imputed$day <- weekdays(d_imputed$date)
+d_imputed$day_type <- '0'
+d_imputed$day_type[d_imputed$day == "Monday" | d_imputed$day == "Tuesday" | 
+            d_imputed$day=="Wednesday" | d_imputed$day=="Thursday" |
+            d_imputed$day=="Friday"] <- '1'
+d_imputed$day_type[d_imputed$day == "Saturday" | d_imputed$day == "Sunday"] <- '2'
+
+imputed <- d_imputed %>%
+      group_by(interval,day_type) %>%
+      summarize(
+            mean_int_steps = mean(steps, na.rm=T))
+```
+
+Then plot the line graph by the type of day to examine the differences.
+```{r, echo=TRUE}
+imputed$day_type <- factor(imputed$day_type, labels = c("Weekend","Weekday"))
+
+ggplot(imputed)+ geom_line(aes(interval,mean_int_steps, color = day_type)
+                           , size = 1) +
+      labs(
+            title = paste("Average steps taken by 5 minute intervals"),
+            subtitle = paste("Calculated with imputed mean steps"),
+            x = paste("Avg. 5 min. intervals"),
+            y = paste("Count of steps")) +
+     facet_wrap(~day_type, ncol = 1, labeller = label_both)
+
+```
